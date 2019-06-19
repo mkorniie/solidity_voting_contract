@@ -1,8 +1,8 @@
 pragma solidity ^0.4.24;
 import "./Passport.sol";
-import "./Roles.sol";
+import "./Owned.sol";
 
-contract Election is Roles {
+contract Election is Owned {
 
     struct Candidate {
         uint id;
@@ -19,6 +19,10 @@ contract Election is Roles {
     Candidate[] public candidates;
     uint public totalVotes;
     
+    uint public voteLengthInSec;
+    uint public startTime;
+    bool public started;
+    
     mapping(address => Voter) public voters;
     Passport public passport;
     
@@ -32,11 +36,17 @@ contract Election is Roles {
         _;
     }
     
-    // function startVote() public {
-    // }
+    modifier timeGate() {
+        require(started == true);
+        require( now <= startTime + (1 seconds * voteLengthInSec));
+        _;
+    }
     
-    // function endVote() public {
-    // }
+    function startVote(uint _voteLengthInSec) ownerOnly public {
+        startTime = now;
+        voteLengthInSec = _voteLengthInSec;
+        started = true;
+    }
     
     constructor(string _name) public {
         owner = msg.sender;
@@ -45,9 +55,8 @@ contract Election is Roles {
     }
     
     function addCandidate(uint _id) ownerOnly public {
-        if ((passport.count() - 1) > _id) {
-            candidates.push(Candidate(_id, 0));    
-        }
+        require((passport.count() - 1) > _id);
+        candidates.push(Candidate(_id, 0));    
     } 
     
     function getCandidatesNum() public view returns(uint) {
@@ -55,10 +64,11 @@ contract Election is Roles {
     }
     
     function authorize(address _person) ownerOnly public {
-            voters[_person].authorized = true;
+        require(passport.userAddress(_person) != 0);
+        voters[_person].authorized = true;
     }
     
-    function vote(uint _vote) public {
+    function vote(uint _vote) timeGate public {
         require(!voters[msg.sender].voted);
         require(voters[msg.sender].authorized);
         
@@ -69,8 +79,14 @@ contract Election is Roles {
         totalVotes++;
     }
     
-    function getWinner() public userOrOwner returns(uint) {
-        
+    function getWinner() public view userOrOwner returns(uint) {
+        uint winnerId = 0;
+        for(uint i= 0; i < candidates.length; i++) {
+            if (candidates[i].voteCount > candidates[winnerId].voteCount) {
+                winnerId = i;
+            }
+        }
+        return winnerId;
     }
     
     function terminateVoting() ownerOnly public {
