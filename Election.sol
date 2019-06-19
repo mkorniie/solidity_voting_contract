@@ -1,8 +1,8 @@
-pragma solidity >=0.4.24;
+pragma solidity ^0.4.24;
 import "./Passport.sol";
-import "./Owned.sol";
+import "./Roles.sol";
 
-contract Election is Owned{
+contract Election is Roles {
 
     struct Candidate {
         uint id;
@@ -12,13 +12,25 @@ contract Election is Owned{
     struct Voter {
         bool authorized;
         bool voted;
+        uint vote;
     }
     
     string public electionName;
     Candidate[] public candidates;
+    uint public totalVotes;
     
-    mapping(id => Voter) public voters;
+    mapping(address => Voter) public voters;
     Passport public passport;
+    
+    modifier userOnly() {
+        require(passport.userAddress(msg.sender) != 0);
+        _;
+    }
+    
+    modifier userOrOwner() {
+        require(passport.userAddress(msg.sender) != 0 || msg.sender == owner);
+        _;
+    }
     
     // function startVote() public {
     // }
@@ -32,13 +44,8 @@ contract Election is Owned{
         passport = new Passport();
     }
     
-    function createUser(string _name, string _surname, uint _age) public ownerOnly {
-        passport.createUser(_name, _surname, _age);
-    }
-    
-    
     function addCandidate(uint _id) ownerOnly public {
-        if (passport.count() > _id) {
+        if ((passport.count() - 1) > _id) {
             candidates.push(Candidate(_id, 0));    
         }
     } 
@@ -47,18 +54,26 @@ contract Election is Owned{
         return candidates.length;
     }
     
-    function authorize(uint _person) ownerOnly public {
-        if (passport.count() > _id) {
+    function authorize(address _person) ownerOnly public {
             voters[_person].authorized = true;
-        }
     }
     
-    function vote(uint _voterId) public {
-        require(!voters[_voterId].voted);
-        require(!voters[_voterId].authorized);
-    }
-    
-    // function terminateVoting() ownerOnly public {
+    function vote(uint _vote) public {
+        require(!voters[msg.sender].voted);
+        require(voters[msg.sender].authorized);
         
-    // }
+        voters[msg.sender].voted = true;
+        voters[msg.sender].vote = _vote;
+        
+        candidates[_vote].voteCount++;
+        totalVotes++;
+    }
+    
+    function getWinner() public userOrOwner returns(uint) {
+        
+    }
+    
+    function terminateVoting() ownerOnly public {
+        selfdestruct(owner);
+    }
 }

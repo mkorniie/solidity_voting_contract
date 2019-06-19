@@ -1,31 +1,27 @@
-pragma solidity >=0.4.24;
-import "./Owned.sol";
+pragma solidity ^0.4.24;
 
-contract Passport is Owned {
+contract Passport {
     
     struct User {
         string name;
         string surname;
         uint age;
-        uint id;
     }
     
     User[] public users;
+    mapping(address => uint) public userAddress; // address to (id + 1)
     address public owner;
     uint public count;
     
-    modifier ownerOnly() {
-        require(msg.sender == owner);
-        _;
-    }
-    
     constructor() public {
-        owner = msg.sender;
-        count = 0;
+        count = 1;
     }
     
-    function createUser(string _name, string _surname, uint _age) public ownerOnly {
-        users.push(User(_name, _surname, _age, count));
-        count++;
+    function createUser(string _name, string _surname, uint _age) public {
+        if (userAddress[msg.sender] == 0) {
+            users.push(User(_name, _surname, _age));
+            userAddress[msg.sender] = count;
+            count++;
+        }
     }
 }
